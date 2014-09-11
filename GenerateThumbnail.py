@@ -54,9 +54,11 @@ else:
 	arcpy.AddMessage("Using user selected foreground...")
 
 mergedImageName = "fgandbg.png"
-
 background = background.resize((200,133), Image.ANTIALIAS)
-background.paste(foreground, (0, 0), foreground)
+fgA = foreground.copy().convert('RGBA')
+fgA = fgA.resize((200,133), Image.ANTIALIAS)
+#background.paste(foreground, (0, 0), foreground)
+background.paste(fgA, (0, 0), fgA)
 background.save(os.path.join(outputPath, mergedImageName))
 
 CHARS_PER_LINE = 0
