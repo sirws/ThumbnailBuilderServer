@@ -4,7 +4,7 @@
 See the live demo: http://nwdemo1.esri.com/ThumbnailBuilder.
 
 Here is a sample of the actually Geoprocessing Service:
-http://nwdemo1.esri.com/arcgis/rest/services/GP/GenerateThumb2/GPServer
+http://nwdemo1.esri.com/arcgis/rest/services/GP/GenerateThumb/GPServer
 
 This is a python script that is published as a Geoprocessing Service to an Esri ArcGIS Server 10.2+.  This is the backend that performs the merging of images and text to create a new thumbnail for ArcGIS Online users.
 
