@@ -2,17 +2,15 @@ from PIL import Image
 from PIL import ImageFont
 from PIL import ImageDraw
 
-import textwrap
-import math
 import os
 import json
 import urllib, cStringIO
 
-fontsPath = r'c:\demos\thumbnailgenerator2\fonts'
+fontsPath = r'C:\Users\scot5141\Documents\GitHub\ThumbnailBuilderServer\fonts'
 outputPath = arcpy.env.scratchFolder
-
-def roundUp(x):
-    return math.ceil(x) if x > 0. else math.floor(x)
+CHARS_PER_LINE = 0
+numLines = 0
+PIXELS_BETWEEN_LINES = 3
 
 astr = arcpy.GetParameterAsText(0)
 FONT_SIZE = int(arcpy.GetParameterAsText(1))
@@ -57,92 +55,87 @@ mergedImageName = "fgandbg.png"
 background = background.resize((200,133), Image.ANTIALIAS)
 fgA = foreground.copy().convert('RGBA')
 fgA = fgA.resize((200,133), Image.ANTIALIAS)
-#background.paste(foreground, (0, 0), foreground)
 background.paste(fgA, (0, 0), fgA)
 background.save(os.path.join(outputPath, mergedImageName))
 
-CHARS_PER_LINE = 0
-numLines = 0
+fits = False #assume the text doesn't fit to start
+finalSize = FONT_SIZE #start with user specified fontsize and test for fit.  Shrink as necessary
 
-def getFontSize(fs):
-    fits = False
-    finalSize = fs
-    while not fits:
-        img = Image.open(os.path.join(outputPath, mergedImageName))
-        MAX_W, MAX_H = img.size
-        MAX_W = LRX - ULX
-        draw = ImageDraw.Draw(img)
-	#arcpy.AddMessage(os.path.join(r"c:\demos\thumbnailgenerator2",selectedFont))
-	#arcpy.AddMessage(selectedFont)
-        font = ImageFont.truetype(os.path.join(r"c:\demos\thumbnailgenerator2\fonts",selectedFont), finalSize)
+while not fits:
+    words = astr.split()
+    img = Image.open(os.path.join(outputPath, mergedImageName))
+    MAX_W, MAX_H = img.size
+    MAX_W = LRX - ULX
+    MAX_H = LRY - ULY
+    draw1 = ImageDraw.Draw(img)
+    font1 = ImageFont.truetype(os.path.join(fontsPath,selectedFont), finalSize)
+    w,h=draw1.textsize(astr, font=font1)
+    arcpy.AddMessage("Width of whole line: " + str(w) + ".  Width of box: " + str(MAX_W))
+    arcpy.AddMessage("Line height: " + str(h))
+    
+    MAX_LINES = MAX_H // (h+PIXELS_BETWEEN_LINES)
+    arcpy.AddMessage("Based on this font and fontsize " + str(finalSize) + ", there can be " + str(MAX_LINES) + " lines in the box specified.")
+    
+    sentence = []
+    lines = []
+    sentenceStr = ""
+    sentenceTest = ""
+    for idx,word in enumerate(words):
+        w,h=draw1.textsize(astr, font=font1)
+        sentenceTest = " ".join(sentence)
+        sentence.append(word)
+        sentenceStr = " ".join(sentence)
+        w,h=draw1.textsize(sentenceStr, font=font1)
+        arcpy.AddMessage("Width of text: '" + sentenceStr + "' is "  + str(w) + " pixels.  Width of box: " + str(MAX_W))
+        if (w > MAX_W):
+            lines.append(sentenceTest)
+            sentence = []
+            sentence.append(word)
+            arcpy.AddMessage("LINE CALCULATED: '" + sentenceTest + "' and new line started")
+            if (idx == (len(words)-1)):
+                lines.append(sentenceStr)
+                arcpy.AddMessage("FINAL LINE CALCULATED: '" + sentenceStr + "'")
+        elif (idx == (len(words)-1)):
+            lines.append(sentenceStr)
+            arcpy.AddMessage("FINAL LINE CALCULATED: '" + sentenceStr + "'")
 
-        #determine CHARS_PER_LINE
-        line = "W"
-        w,h=draw.textsize(line, font=font)
-        if (w<=MAX_W):
-            moreRoom = True
-            while moreRoom:
-                 line = line + "W"
-                 w,h=draw.textsize(line, font=font)
-                 if (w>MAX_W):
-                    CHARS_PER_LINE = (len(line) - 1)
-                    break
+    if (MAX_LINES >= len(lines)):
+        fits = True
+    else:
+        fits = False
+        finalSize-=1
+        FONT_SIZE=finalSize
 
-        print CHARS_PER_LINE
-
-        para=textwrap.wrap(astr,width=CHARS_PER_LINE)
-        numLines = len(para) 
-
-        totalHeight = (h+4)*numLines
-        if (totalHeight <= (LRY - ULY)):
-            fits = True
-        else:
-            finalSize = finalSize - 1
-    return finalSize, totalHeight
-            
-FONT_SIZE,th = getFontSize(FONT_SIZE)
+totalHeight = (len(lines) * (h+PIXELS_BETWEEN_LINES))-PIXELS_BETWEEN_LINES
 
 img = Image.open(os.path.join(outputPath, mergedImageName))
 MAX_W, MAX_H = img.size
 MAX_W = LRX - ULX
 draw = ImageDraw.Draw(img)
-font = ImageFont.truetype(os.path.join(r"c:\demos\thumbnailgenerator2\fonts",selectedFont), FONT_SIZE)
+font = ImageFont.truetype(os.path.join(fontsPath,selectedFont), FONT_SIZE)
 
-#determine CHARS_PER_LINE
-line = "W"
-w,h=draw.textsize(line, font=font)
-if (w<=MAX_W):
-    moreRoom = True
-    while moreRoom:
-         line = line + "W"
-         w,h=draw.textsize(line, font=font)
-         if (w>MAX_W):
-            CHARS_PER_LINE = (len(line) - 1)
-            break
+numLines = len(lines)
 
-print CHARS_PER_LINE
-
-para=textwrap.wrap(astr,width=CHARS_PER_LINE)
-numLines = len(para)
-
-current_h = ((LRY - ULY) - th)/2 + ULY
-print th
-print current_h
+current_h = ((LRY - ULY) - totalHeight)/2 + ULY
+arcpy.AddMessage("current_h: " + str(current_h))
 
 if (ALIGN == "Right"):
-    for line in para:
+    for line in lines:
         w,h=draw.textsize(line, font=font)
-        draw.text((ULX, current_h), line.rjust(CHARS_PER_LINE), font=font, fill=TEXT_COLOR)
-        current_h+=h
+        draw.text((ULX + (MAX_W - w), current_h), line, font=font, fill=TEXT_COLOR)
+	arcpy.AddMessage("WRITING LINE TO IMAGE: '" + line + "' at insertion x location: " + str(current_h))
+        current_h+=h+PIXELS_BETWEEN_LINES
 elif (ALIGN == "Center"):
-    for line in para:
+    for line in lines:
         w,h=draw.textsize(line, font=font)
         draw.text((((LRX-ULX-w)/2), current_h), line, font=font, fill=TEXT_COLOR)
-        current_h+=h
+	arcpy.AddMessage("WRITING LINE TO IMAGE: '" + line + "' at insertion x location: " + str(current_h))
+        current_h+=h+PIXELS_BETWEEN_LINES
 else:
-    for line in para:
+    for line in lines:
         w,h=draw.textsize(line, font=font)
         draw.text((ULX, current_h), line, font=font, fill=TEXT_COLOR)
-        current_h+=h
+	arcpy.AddMessage("WRITING LINE TO IMAGE: '" + line + "' at insertion x location: " + str(current_h))
+        current_h+=h+PIXELS_BETWEEN_LINES
 img.save(os.path.join(outputPath, "outputimage" + ".png"))
 arcpy.SetParameterAsText(13, os.path.join(outputPath, "outputimage" + ".png"))
