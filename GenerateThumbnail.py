@@ -92,7 +92,9 @@ while not fits:
             sentence = []
             sentence.append(word)
             arcpy.AddMessage("LINE CALCULATED: '" + sentenceTest + "' and new line started")
+            arcpy.AddMessage("idx: '" + str(idx) + ", " + str(len(words)-1))
             if (idx == (len(words)-1)):
+                sentenceStr = " ".join(sentence)
                 lines.append(sentenceStr)
                 arcpy.AddMessage("FINAL LINE CALCULATED: '" + sentenceStr + "'")
         elif (idx == (len(words)-1)):
